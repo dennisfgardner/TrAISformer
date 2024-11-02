@@ -23,7 +23,9 @@ https://arxiv.org/abs/2109.03958
 """
 import numpy as np
 from numpy import linalg
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 import os
 import sys
 import pickle
