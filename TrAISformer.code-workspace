@@ -4,5 +4,12 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"cSpell.words": [
+			"datapath",
+			"lons",
+			"mmsi",
+			"traj"
+		]
+	}
 }
