@@ -6,10 +6,23 @@
 	],
 	"settings": {
 		"cSpell.words": [
+			"basemap",
+			"cmap",
+			"contextily",
 			"datapath",
+			"geopandas",
+			"linewidth",
 			"lons",
+			"meshgrid",
 			"mmsi",
-			"traj"
+			"nelement",
+			"newaxis",
+			"probs",
+			"softmax",
+			"Topo",
+			"traj",
+			"unsqueeze",
+			"zorder"
 		]
 	}
 }
