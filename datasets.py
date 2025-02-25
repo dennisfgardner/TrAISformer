@@ -74,7 +74,7 @@ class AISDataset(Dataset):
         
         seqlen = torch.tensor(seqlen, dtype=torch.int)
         mmsi =  torch.tensor(V["mmsi"], dtype=torch.int)
-        time_start = torch.tensor(V["traj"][0,4], dtype=torch.int)
+        time_start = torch.tensor(int(V["traj"][0,4]), dtype=torch.int)
         
         return seq , mask, seqlen, mmsi, time_start
     

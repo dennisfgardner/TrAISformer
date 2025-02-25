@@ -36,6 +36,7 @@ class Config():
     min_seqlen = 36
     
     dataset_name = "ct_dma"
+    dataset_name = "mc_ais"
 
     if dataset_name == "ct_dma": #==============================
    
@@ -57,7 +58,27 @@ class Config():
         lon_min = 10.3
         lon_max = 13
 
+    if dataset_name == "mc_ais": #==============================
+   
+        # When mode == "grad" or "pos_grad", sog and cog are actually dlat and 
+        # dlon    
+        lat_size = 250
+        lon_size = 270
+        sog_size = 30
+        cog_size = 72
+
+        
+        n_lat_embd = 256
+        n_lon_embd = 256
+        n_sog_embd = 128
+        n_cog_embd = 128
     
+        lat_min = 36.75
+        lat_max = 39.25
+        lon_min = -77.35
+        lon_max = -74.65
+
+
     #===========================================================================
     # Model and sampling flags
     mode = "pos"  #"pos", "pos_grad", "mlp_pos", "mlpgrid_pos", "velo", "grid_l2", "grid_l1", 
@@ -79,6 +100,7 @@ class Config():
     # Data flags
     #===================================================
     datadir = f"./data/{dataset_name}/"
+    datadir = f"../marine-cadastre/output/{dataset_name}/"
     trainset_name = f"{dataset_name}_train.pkl"
     validset_name = f"{dataset_name}_valid.pkl"
     testset_name = f"{dataset_name}_test.pkl"
