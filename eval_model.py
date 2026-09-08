@@ -130,7 +130,7 @@ def main():
     seq = sub_seq[np.newaxis, :]
     seq = torch.tensor(seq).to(cf.device)
 
-    for ii in range(0, 3):
+    for ii in range(0, 15):
         print(ii)
 
         # predict the next point
@@ -179,17 +179,19 @@ def main():
         prob[prob < threshold] = np.nan
 
         _, ax = basemap()
-        ax.plot(lons, lats, color="red", linewidth=2, zorder=1)
+        ax.plot(lons, lats, color="red", linewidth=2, zorder=1,
+                label="True Path")
         ax.scatter(sub_lons, sub_lats, color="black", marker=".", s=100,
                    zorder=2)
         ax.scatter(lons[0], lats[0], color="green", marker="8", s=100,
-                   order=3)
+                   zorder=3)
         ax.scatter(lons[-1], lats[-1], color="red", marker="X", s=100,
                    zorder=4)
         ax.imshow(prob, origin="lower",
                   extent=(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX), cmap=my_cmap)
         ax.set_xlabel("longitude")
         ax.set_ylabel("latitude")
+        ax.legend(loc='best')
         plt.show()
 
 
