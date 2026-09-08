@@ -19,24 +19,28 @@ from shapely.geometry import Polygon
 import models
 from config_trAISformer import Config
 
-# region of interest (ROI) from author's paper
-LAT_MIN = 55.5
-LAT_MAX = 58.0
-LON_MIN = 10.3
-LON_MAX = 13.0
+# region of interest (ROI) of the dataset selected in Config
+CF = Config()
+LAT_MIN = CF.lat_min
+LAT_MAX = CF.lat_max
+LON_MIN = CF.lon_min
+LON_MAX = CF.lon_max
+
+# the cached raster only covers one ROI, so key it by dataset
+BASEMAP_PATH = Path(f"basemap_{CF.dataset_name}.tif")
 
 
 def save_basemap():
     """save the map raster"""
     cx.bounds2raster(LON_MIN, LAT_MIN, LON_MAX, LAT_MAX, ll=True,
-                     path="basemap.tif", source=cx.providers.OpenTopoMap)
+                     path=str(BASEMAP_PATH), source=cx.providers.OpenTopoMap)
 
 
 def basemap():
     """get basemap"""
 
     # only need to run once to generate local raster
-    if not Path("basemap.tif").exists():
+    if not BASEMAP_PATH.exists():
         save_basemap()
 
     lon_point_list = [LON_MIN, LON_MIN, LON_MAX, LON_MAX]
@@ -56,7 +60,7 @@ def basemap():
     )
 
     # Add the basemap using contextily
-    cx.add_basemap(ax, crs=gdf.crs, source="basemap.tif", alpha=1.0)
+    cx.add_basemap(ax, crs=gdf.crs, source=str(BASEMAP_PATH), alpha=1.0)
 
     return fig, ax
 
@@ -85,7 +89,7 @@ def get_test_data():
       are needed from the from author's paper
     """
 
-    datapath = Path("data/ct_dma/ct_dma_test.pkl")
+    datapath = Path(CF.datadir) / CF.testset_name
     with open(datapath, "rb") as f:
         # raw data is a list of dicts with keys "mmsi" and "traj"
         data = pickle.load(f)
@@ -103,7 +107,7 @@ def main():
     """main entry point"""
 
     # config is struct holding variables
-    cf = Config()
+    cf = CF
 
     # load the model
     model = models.TrAISformer(cf, partition_model=None)
