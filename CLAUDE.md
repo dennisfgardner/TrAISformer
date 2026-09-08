@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PyTorch implementation of TrAISformer (https://arxiv.org/abs/2109.03958), a GPT-style generative
 transformer for AIS vessel-trajectory prediction. The transformer core is adapted from
-karpathy/minGPT. This fork adds local evaluation/visualization scripts (`eval_model.py`,
-`data_viewer.py`) that plot predictions over an OpenTopoMap basemap.
+karpathy/minGPT. This fork adds two local visualization scripts: `eval_model.py`, which rolls out a
+prediction and draws its probability heatmap over an OpenTopoMap basemap, and `data_viewer.py`, which
+scatter-plots the raw dataset without a basemap.
 
 ## Environment & commands
 
@@ -152,5 +153,7 @@ against that dataset's ROI. Split into `<name>_train.pkl` / `_valid.pkl` / `_tes
   `(lat, lon)` coastline arrays, used only by `data_viewer.py`.
 - `../marine-cadastre/output/mc_ais/` — US Marine Cadastre AIS data, generated outside this repo.
 
-`basemap.tif` is a cached contextily/OpenTopoMap raster for the `ct_dma` ROI, gitignored. Delete it
-to have `eval_model.save_basemap()` refetch — necessary if the ROI changes, since the filename is fixed.
+`basemap_<dataset_name>.tif` is a cached contextily/OpenTopoMap raster covering that dataset's ROI,
+written on first use by `eval_model.save_basemap()` and gitignored via `basemap*.tif`. Delete one to
+force a refetch. The ct_dma raster was originally named `basemap.tif`; it was renamed to
+`basemap_ct_dma.tif` when the cache became per-dataset.
