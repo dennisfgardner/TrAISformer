@@ -24,6 +24,15 @@ python data_viewer.py     # scatter-plot raw test trajectories and coastline pol
 There is no test suite, linter config, or build step. `eval_model.py` / `data_viewer.py` use
 `plt.show()` and need a GUI backend; `trAISformer.py` forces `matplotlib.use('Agg')`.
 
+**If `import torch` fails** with `libcusparse.so.12: undefined symbol: __nvJitLinkComplete_12_4`:
+`~/.bashrc` puts `/usr/local/cuda-12.2/lib64` on `LD_LIBRARY_PATH`, so the system CUDA 12.2
+`libnvJitLink.so.12` is found before the CUDA 12.4 copy that `torch==2.5.1+cu124` ships, and the
+12.2 build lacks the symbol `libcusparse` needs. The venv works around it with
+`site-packages/zz_nvjitlink_fix.pth`, which `ctypes.CDLL`s the bundled 12.4 library with
+`RTLD_GLOBAL` at interpreter startup, so the right soname is already resolved when torch loads.
+`venv/` is gitignored, so **recreate that `.pth` after rebuilding the venv** (or prepend
+`$VIRTUAL_ENV/lib/python3.12/site-packages/nvidia/nvjitlink/lib` to `LD_LIBRARY_PATH`).
+
 ## Configuration
 
 `config_trAISformer.py` is the single source of truth — there is no CLI argument parsing. Every
