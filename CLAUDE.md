@@ -91,10 +91,16 @@ per-channel logit blocks and trained with four independent cross-entropy losses.
 touches the head, the losses, or sampling must keep that split ordering `(lat, lon, sog, cog)`.
 
 **Denormalization** back to degrees is `x * (MAX-MIN) + MIN` using the active ROI. The constants are
-sourced from `Config` in both `eval_model.py:undo_norm_ll` and `data_viewer.py:view_test_data`.
-`trAISformer.py` is the remaining exception: for the haversine error it uses a `v_ranges` /
-`v_roi_min` tensor pair fixed at `[2, 3, 0, 0]` / `[model.lat_min, -7, 0, 0]`, which hardcodes the
-Danish lat/lon spans and is therefore wrong for any other ROI.
+sourced from `Config` everywhere: `eval_model.py:undo_norm_ll`, `data_viewer.py:view_test_data`, and
+the `v_ranges` / `v_roi_min` tensor pair `trAISformer.py` builds for the haversine error (now
+`[model.lat_range, model.lon_range, 0, 0]` / `[model.lat_min, model.lon_min, 0, 0]`).
+
+Upstream hardcoded that pair as `[2, 3, 0, 0]` / `[model.lat_min, -7, 0, 0]` — spans rounded off the
+true ct_dma ROI (2.5 and 2.7) and a longitude origin that is simply wrong. The bogus longitude origin
+was harmless, since `utils.haversine` uses longitude only through a difference and any offset
+cancels; the rounded spans were not, and scaled the reported km. Fixing them raises ct_dma errors by
+roughly 11%, so numbers from `prediction_error.png` no longer line up with the published paper
+values even after the km-to-nautical-mile conversion.
 
 **Blur loss** (`Config.blur*`): a fixed 1-D averaging `Conv1d` smooths the softmax over neighboring
 bins and an extra NLL term on the blurred distribution is added to each channel loss, so
