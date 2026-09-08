@@ -28,15 +28,53 @@ There is no test suite, linter config, or build step. `eval_model.py` / `data_vi
 
 `config_trAISformer.py` is the single source of truth — there is no CLI argument parsing. Every
 script instantiates `Config()` and reads flags off it. Editing this file is how you change any
-behavior:
+behavior.
+
+**Values are overridden by re-assignment, not by editing in place.** The file leaves the previous
+line intact and shadows it with a second assignment, so the *last* assignment wins:
+
+```python
+dataset_name = "ct_dma"
+dataset_name = "mc_ais"                                  # <- the active dataset
+...
+datadir = f"./data/{dataset_name}/"
+datadir = f"../marine-cadastre/output/{dataset_name}/"   # <- the active path
+```
+
+To switch back, comment out or delete the second line; don't assume the first line reflects reality.
+
+Other flags that matter:
 
 - `retrain` — `False` skips training and only loads `cf.ckpt_path` for evaluation. Set `True` to train.
 - `device` — hardcoded `cuda:0`; switch to the commented `cpu` line when no GPU is present.
-- `savedir` / `ckpt_path` are **derived** from the hyperparameters via the long `filename` f-string.
-  Changing any of `mode`, `sample_mode`, `top_k`, `r_vicinity`, blur flags, the `*_size` bins, the
-  `n_*_embd` sizes, `n_head`/`n_layer`, `batch_size`, `learning_rate`, or the seqlens repoints
-  `results/<filename>/model.pt` at a different (probably nonexistent) checkpoint. Only one trained
-  checkpoint exists in `results/`, matching the committed defaults.
+- `savedir` / `ckpt_path` are **derived** from the hyperparameters via the long `filename` f-string,
+  which begins with `dataset_name`. Changing the dataset — or any of `mode`, `sample_mode`, `top_k`,
+  `r_vicinity`, the blur flags, the `*_size` bins, the `n_*_embd` sizes, `n_head`/`n_layer`,
+  `batch_size`, `learning_rate`, or the seqlens — repoints `results/<filename>/model.pt` at a
+  different (probably nonexistent) checkpoint. The only trained checkpoint in `results/` is the
+  `ct_dma-...` one matching the upstream defaults, so loading it requires `dataset_name = "ct_dma"`.
+
+### Regions of interest
+
+Two ROI blocks are defined, guarded by `if dataset_name == ...`. Both use identical bin counts
+(`lat_size=250`, `lon_size=270`, `sog_size=30`, `cog_size=72`) and embedding widths; only the
+lat/lon bounds differ:
+
+| `dataset_name` | ROI | lat | lon | Data location |
+| --- | --- | --- | --- | --- |
+| `ct_dma` | Danish straits | 55.5 – 58.0 | 10.3 – 13.0 | `data/ct_dma/` (in-repo) |
+| `mc_ais` | US Mid-Atlantic | 36.75 – 39.25 | -77.35 – -74.65 | `../marine-cadastre/output/mc_ais/` (**outside the repo**) |
+
+The `mc_ais` data comes from a separate sibling `marine-cadastre` project that is not part of this
+repository; if that directory is missing, `trAISformer.py` fails at the pickle load. The `mc_ais`
+block is a second `if` rather than an `elif`, so both would execute if the names ever matched.
+
+**`eval_model.py` and `data_viewer.py` do not honor `dataset_name`.** Both hardcode the `ct_dma` ROI
+constants (`LAT_MIN=55.5` … `LON_MAX=13.0`) and the literal path `data/ct_dma/ct_dma_test.pkl`, and
+`basemap.tif` is a raster cached for that ROI. They load whatever `cf.ckpt_path` points at, so on an
+`mc_ais` config they will silently plot the wrong data on the wrong map. Fix those constants (or
+thread them from `Config`) before using either script on a non-Danish dataset.
+
 
 ## Architecture
 
@@ -48,9 +86,11 @@ projects back to `full_size = 250+270+30+72 = 622` logits, which are `torch.spli
 per-channel logit blocks and trained with four independent cross-entropy losses. Anything that
 touches the head, the losses, or sampling must keep that split ordering `(lat, lon, sog, cog)`.
 
-**Denormalization** back to degrees is `x * (MAX-MIN) + MIN` using the ROI in `Config`
-(lat 55.5–58.0, lon 10.3–13.0). `eval_model.py:undo_norm_ll` and `data_viewer.py` duplicate these
-constants; `trAISformer.py` instead uses a `v_ranges`/`v_roi_min` tensor pair for the haversine error.
+**Denormalization** back to degrees is `x * (MAX-MIN) + MIN` using the active ROI. The constants are
+duplicated in four places rather than shared: `Config`, `eval_model.py:undo_norm_ll`, and
+`data_viewer.py:view_test_data` (the latter two hardcoded to `ct_dma`), plus the `v_ranges` /
+`v_roi_min` tensor pair in `trAISformer.py` used for the haversine error — itself hardcoded to
+`[2, 3, 0, 0]` / `[model.lat_min, -7, 0, 0]` and therefore also only correct for the Danish ROI.
 
 **Blur loss** (`Config.blur*`): a fixed 1-D averaging `Conv1d` smooths the softmax over neighboring
 bins and an extra NLL term on the blurred distribution is added to each channel loss, so
@@ -84,8 +124,14 @@ whose supporting code (e.g. `res_pred`) is absent.
 
 ## Data
 
-`data/ct_dma/*.pkl` — pickled lists of dicts with `"mmsi"` and `"traj"`, where `traj` columns are
-`[lat, lon, sog, cog, unix_timestamp, mmsi]` and lat/lon/sog/cog are already normalized to `[0,1)`.
-Source: Danish Maritime Authority; preprocessing code lives in the GeoTrackNet repo (see README).
-`dma_coastline_polygons.pkl` holds un-normalized `(lat, lon)` coastline arrays.
-`basemap.tif` is a cached contextily raster; delete it to have `eval_model.save_basemap()` refetch.
+Pickled lists of dicts with `"mmsi"` and `"traj"`, where `traj` columns are
+`[lat, lon, sog, cog, unix_timestamp, mmsi]` and lat/lon/sog/cog are already normalized to `[0,1)`
+against that dataset's ROI. Split into `<name>_train.pkl` / `_valid.pkl` / `_test.pkl`.
+
+- `data/ct_dma/` — Danish Maritime Authority data shipped with the upstream repo; preprocessing code
+  lives in the GeoTrackNet repo (see README). `dma_coastline_polygons.pkl` holds un-normalized
+  `(lat, lon)` coastline arrays, used only by `data_viewer.py`.
+- `../marine-cadastre/output/mc_ais/` — US Marine Cadastre AIS data, generated outside this repo.
+
+`basemap.tif` is a cached contextily/OpenTopoMap raster for the `ct_dma` ROI, gitignored. Delete it
+to have `eval_model.save_basemap()` refetch — necessary if the ROI changes, since the filename is fixed.
