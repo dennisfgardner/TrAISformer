@@ -69,14 +69,15 @@ The `mc_ais` data comes from a separate sibling `marine-cadastre` project that i
 repository; if that directory is missing, `trAISformer.py` fails at the pickle load. The `mc_ais`
 block is a second `if` rather than an `elif`, so both would execute if the names ever matched.
 
-`eval_model.py` follows `Config`: its module-level `CF = Config()` derives `LAT_MIN`/`LAT_MAX`/
-`LON_MIN`/`LON_MAX`, the test-set path (`CF.datadir` + `CF.testset_name`), and a per-dataset raster
-cache `basemap_<dataset_name>.tif` (gitignored as `basemap*.tif`), so switching `dataset_name` moves
-the ROI, the data, the checkpoint, and the basemap together.
+Both `eval_model.py` and `data_viewer.py` follow `Config`: each has a module-level `CF = Config()`
+from which `LAT_MIN`/`LAT_MAX`/`LON_MIN`/`LON_MAX` and the test-set path (`CF.datadir` +
+`CF.testset_name`) are derived. `eval_model.py` additionally keys its raster cache by dataset
+(`basemap_<dataset_name>.tif`, gitignored as `basemap*.tif`), so switching `dataset_name` moves the
+ROI, the data, the checkpoint, and the basemap together.
 
-**`data_viewer.py` still does not honor `dataset_name`** — it hardcodes the `ct_dma` ROI constants
-inside `view_test_data` and the literal paths `data/ct_dma/ct_dma_test.pkl` and
-`data/ct_dma/dma_coastline_polygons.pkl`, so it always plots the Danish dataset.
+Because `Config` imports `torch`, both viewer scripts now pull in torch at import time.
+`data_viewer.view_coastline_data` looks for `dma_coastline_polygons.pkl` under `CF.datadir` and prints
+a skip message when absent — that file ships only with `ct_dma`, and no equivalent exists for `mc_ais`.
 
 
 ## Architecture
@@ -90,10 +91,10 @@ per-channel logit blocks and trained with four independent cross-entropy losses.
 touches the head, the losses, or sampling must keep that split ordering `(lat, lon, sog, cog)`.
 
 **Denormalization** back to degrees is `x * (MAX-MIN) + MIN` using the active ROI. The constants are
-sourced from `Config` in `eval_model.py:undo_norm_ll`, but still hardcoded to `ct_dma` in
-`data_viewer.py:view_test_data`. `trAISformer.py` takes a third route for the haversine error — a
-`v_ranges` / `v_roi_min` tensor pair fixed at `[2, 3, 0, 0]` / `[model.lat_min, -7, 0, 0]`, which
-encodes the Danish lat/lon spans and is therefore wrong for any other ROI.
+sourced from `Config` in both `eval_model.py:undo_norm_ll` and `data_viewer.py:view_test_data`.
+`trAISformer.py` is the remaining exception: for the haversine error it uses a `v_ranges` /
+`v_roi_min` tensor pair fixed at `[2, 3, 0, 0]` / `[model.lat_min, -7, 0, 0]`, which hardcodes the
+Danish lat/lon spans and is therefore wrong for any other ROI.
 
 **Blur loss** (`Config.blur*`): a fixed 1-D averaging `Conv1d` smooths the softmax over neighboring
 bins and an extra NLL term on the blurred distribution is added to each channel loss, so
