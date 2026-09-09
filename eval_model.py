@@ -84,7 +84,7 @@ def get_test_data():
     """get test data
 
     - data is a list of dicts, dicts with keys "mmsi" and "traj"
-    - trajectory data is [lat, log, sog, cog, unix_timestamp, mmsi]
+    - trajectory data is [lat, lon, sog, cog, unix_timestamp, mmsi]
     - data is normalized, to convert to original (lat, lon) the max/min values
       are needed from the from author's paper
     """

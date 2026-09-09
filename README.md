@@ -55,7 +55,7 @@ The data used in this paper are provided by the [Danish Maritime Authority (DMA)
 Please refer to [the paper](https://arxiv.org/abs/2109.03958) for the details of the pre-processing step. The code is available here: https://github.com/CIA-Oceanix/GeoTrackNet/blob/master/data/csv2pkl.py
 
 A processed dataset can be found in `./data/ct_dma/`
-(the format is `[lat, log, sog, cog, unix_timestamp, mmsi]`).
+(the format is `[lat, lon, sog, cog, unix_timestamp, mmsi]`).
 
 ### Run
 
