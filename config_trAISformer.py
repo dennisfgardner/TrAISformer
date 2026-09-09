@@ -22,12 +22,12 @@ import torch
 
 
 class Config():
-    retrain = True
+    retrain = False
     tb_log = False
     device = torch.device("cuda:0")
 #     device = torch.device("cpu")
     
-    max_epochs = 25
+    max_epochs = 15
     batch_size = 16
     n_samples = 16
     
@@ -36,7 +36,7 @@ class Config():
     min_seqlen = 36
     
     dataset_name = "ct_dma"
-#     dataset_name = "mc_ais"
+    dataset_name = "mc_ais"
 
     if dataset_name == "ct_dma": #==============================
    
@@ -100,7 +100,7 @@ class Config():
     # Data flags
     #===================================================
     datadir = f"./data/{dataset_name}/"
-#     datadir = f"../marine-cadastre/output/{dataset_name}/"
+    datadir = f"/home/dennis/repos/coast_guard_AIS_data/output/{dataset_name}/"
     trainset_name = f"{dataset_name}_train.pkl"
     validset_name = f"{dataset_name}_valid.pkl"
     testset_name = f"{dataset_name}_test.pkl"

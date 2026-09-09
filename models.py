@@ -242,6 +242,16 @@ class TrAISformer(nn.Module):
         return optimizer
    
     
+    def clamp_to_bins(self, x):
+        """Bin x into per-channel indexes, keeping them inside the embedding tables.
+        
+        x is supposed to be in [0,1), but a position sitting exactly on the edge of the ROI
+        normalizes to 1.0 and would index one past the end of its embedding.
+        """
+        idxs = (x*self.att_sizes).long()
+        return torch.minimum(idxs.clamp(min=0), self.att_sizes-1)
+    
+    
     def to_indexes(self, x, mode="uniform"):
         """Convert tokens to indexes.
         
@@ -255,11 +265,11 @@ class TrAISformer(nn.Module):
         """
         bs, seqlen, data_dim = x.shape
         if mode == "uniform":
-            idxs = (x*self.att_sizes).long()
+            idxs = self.clamp_to_bins(x)
             return idxs, idxs
         elif mode in ("freq", "freq_uniform"):
             
-            idxs = (x*self.att_sizes).long()
+            idxs = self.clamp_to_bins(x)
             idxs_uniform = idxs.clone()
             discrete_lats, discrete_lons, lat_ids, lon_ids = self.partition_model(x[:,:,:2])
 #             pdb.set_trace()

@@ -66,24 +66,31 @@ def newest_log():
     return logs[-1]
 
 
-def load_test_tracks(min_len):
-    """test tracks, filtered the same way trAISformer.py filters them
+def filter_tracks(tracks, min_len):
+    """apply trAISformer.py's dataset filtering: trim, then drop NaNs and short tracks
 
-    Drops the leading not-yet-moving portion, then tracks with NaNs or fewer than `min_len`
-    points. Returns them sorted by how far the vessel travels within the first `min_len` points
-    (i.e. the window that actually gets plotted), so callers get tracks that are going somewhere
-    rather than idling in a harbour.
+    Drops the leading not-yet-moving portion of each track, then any track containing NaNs or left
+    with fewer than `min_len` points.
     """
     moving_threshold = 0.05
-    tracks = eval_model.get_test_data()
     for v in tracks:
         try:
             moving_idx = np.where(v["traj"][:, 2] > moving_threshold)[0][0]
         except IndexError:
             moving_idx = len(v["traj"]) - 1  # this track will be dropped below
         v["traj"] = v["traj"][moving_idx:, :]
-    tracks = [v for v in tracks
-              if not np.isnan(v["traj"]).any() and len(v["traj"]) >= min_len]
+    return [v for v in tracks
+            if not np.isnan(v["traj"]).any() and len(v["traj"]) >= min_len]
+
+
+def load_test_tracks(min_len):
+    """test tracks, filtered the same way trAISformer.py filters them
+
+    Returns them sorted by how far the vessel travels within the first `min_len` points (i.e. the
+    window that actually gets plotted), so callers get tracks that are going somewhere rather than
+    idling in a harbour.
+    """
+    tracks = filter_tracks(eval_model.get_test_data(), min_len)
 
     def span(v):
         lat, lon = eval_model.undo_norm_ll(v["traj"][:min_len, 0], v["traj"][:min_len, 1])

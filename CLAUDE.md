@@ -48,7 +48,7 @@ dataset_name = "ct_dma"
 dataset_name = "mc_ais"                                  # <- the active dataset
 ...
 datadir = f"./data/{dataset_name}/"
-datadir = f"../marine-cadastre/output/{dataset_name}/"   # <- the active path
+datadir = f"/home/dennis/repos/coast_guard_AIS_data/output/{dataset_name}/"   # <- the active path
 ```
 
 To switch back, comment out or delete the second line; don't assume the first line reflects reality.
@@ -61,8 +61,10 @@ Other flags that matter:
   which begins with `dataset_name`. Changing the dataset — or any of `mode`, `sample_mode`, `top_k`,
   `r_vicinity`, the blur flags, the `*_size` bins, the `n_*_embd` sizes, `n_head`/`n_layer`,
   `batch_size`, `learning_rate`, or the seqlens — repoints `results/<filename>/model.pt` at a
-  different (probably nonexistent) checkpoint. The only trained checkpoint in `results/` is the
-  `ct_dma-...` one matching the upstream defaults, so loading it requires `dataset_name = "ct_dma"`.
+  different (probably nonexistent) checkpoint. `results/` currently holds a `ct_dma-...-bs-16-...`
+  and an `mc_ais-...-bs-16-...` run, both trained on this machine, plus a `.bak-2024-11-01` copy of
+  the original upstream-default (`bs-32`) ct_dma checkpoint. `batch_size` is 16 rather than the
+  upstream 32 because the 4 GB GPU runs out of memory at 32.
 
 ### Regions of interest
 
@@ -73,10 +75,13 @@ lat/lon bounds differ:
 | `dataset_name` | ROI | lat | lon | Data location |
 | --- | --- | --- | --- | --- |
 | `ct_dma` | Danish straits | 55.5 – 58.0 | 10.3 – 13.0 | `data/ct_dma/` (in-repo) |
-| `mc_ais` | US Mid-Atlantic | 36.75 – 39.25 | -77.35 – -74.65 | `../marine-cadastre/output/mc_ais/` (**outside the repo**) |
+| `mc_ais` | Chesapeake Bay | 36.75 – 39.25 | -77.35 – -74.65 | `/home/dennis/repos/coast_guard_AIS_data/output/mc_ais/` (**outside the repo**) |
 
-The `mc_ais` data comes from a separate sibling `marine-cadastre` project that is not part of this
-repository; if that directory is missing, `trAISformer.py` fails at the pickle load. The `mc_ais`
+The `mc_ais` data comes from the separate `coast_guard_AIS_data` project (US Coast Guard / Marine
+Cadastre 2023 AIS), whose `RegionOfInterest` dataclass defines the ROI this block must mirror; if
+that directory is missing, `trAISformer.py` fails at the pickle load. Its bounds check is inclusive,
+so a few positions land exactly on the edge and normalize to 1.0 rather than into `[0,1)` —
+`TrAISformer.clamp_to_bins` keeps those from indexing past the end of an embedding table. The `mc_ais`
 block is a second `if` rather than an `elif`, so both would execute if the names ever matched.
 
 Both `eval_model.py` and `data_viewer.py` follow `Config`: each has a module-level `CF = Config()`
@@ -137,6 +142,14 @@ predicted distribution is visible in the heatmap.
   top-k helpers.
 - `trAISformer.py` — the main entry point; also does the dataset filtering (drops tracks with NaNs,
   shorter than `min_seqlen`, and trims the leading not-yet-moving portion via `moving_threshold`).
+- `make_visuals.py` — builds a finished run's figures into its `savedir`: `loss_curves.png` (parsed
+  from the run log), `training_epochs.gif` (the trainer's per-epoch plots animated),
+  `map_true_vs_pred.png` (forecast fan over the basemap, four tracks picked by error percentile) and
+  `rollout_heatmap.gif`. `filter_tracks()` here mirrors trAISformer.py's filtering.
+- `compare_runs.py` — compares two runs on different regions. `measure` scores the active dataset's
+  whole test set against a dead-reckoning baseline and caches `comparison_metrics.json` beside the
+  checkpoint; `plot` reads every cached measurement and writes `results/comparison/`. Run `measure`
+  once per dataset, since `Config` only describes one at a time.
 
 Note `Config.mode` advertises many variants (`"velo"`, `"grid_l2"`, `"gridcont_*"`, …) that are
 referenced in branches but only `"pos"` is exercised; `models.py` also has `mode`-specific branches
@@ -151,7 +164,8 @@ against that dataset's ROI. Split into `<name>_train.pkl` / `_valid.pkl` / `_tes
 - `data/ct_dma/` — Danish Maritime Authority data shipped with the upstream repo; preprocessing code
   lives in the GeoTrackNet repo (see README). `dma_coastline_polygons.pkl` holds un-normalized
   `(lat, lon)` coastline arrays, used only by `data_viewer.py`.
-- `../marine-cadastre/output/mc_ais/` — US Marine Cadastre AIS data, generated outside this repo.
+- `/home/dennis/repos/coast_guard_AIS_data/output/mc_ais/` — US Coast Guard / Marine Cadastre AIS
+  data for Chesapeake Bay, generated outside this repo.
 
 `basemap_<dataset_name>.tif` is a cached contextily/OpenTopoMap raster covering that dataset's ROI,
 written on first use by `eval_model.save_basemap()` and gitignored via `basemap*.tif`. Delete one to
