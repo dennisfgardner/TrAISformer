@@ -20,14 +20,23 @@ upstream:
 - **Runs on Python 3.12 / PyTorch 2.5** — `iter(dl).next()` replaced with `next(iter(dl))`, and the
   timestamp cast in `datasets.py` made explicit.
 - **Two regions of interest**, selected by `dataset_name` in `config_trAISformer.py`: the original
-  Danish `ct_dma` and `mc_ais`, US Mid-Atlantic data built from
+  Danish `ct_dma` and `mc_ais`, Chesapeake Bay data built from US Coast Guard
   [Marine Cadastre](https://marinecadastre.gov/ais/) AIS records by a separate sibling project.
+  Both regions use the same 2.5 deg x 2.7 deg box, so the two are directly comparable.
 - **The ROI is read from `Config` everywhere.** `eval_model.py`, `data_viewer.py` and the haversine
   error in `trAISformer.py` previously hardcoded the Danish bounds, so they silently produced wrong
   results for any other region. See the note under [Run](#run) — this changes the reported errors.
 - **New `eval_model.py`** — loads a checkpoint, rolls a test track forward step by step, and plots
   the predicted lat/lon probability distribution as a heatmap over an OpenTopoMap basemap.
 - **New `data_viewer.py`** — scatter-plots the raw test trajectories and the coastline polygons.
+- **New `make_visuals.py`** — builds a finished run's figures into its results directory: training
+  and validation loss curves, the per-epoch trajectory plots animated into a GIF, four-hour forecast
+  maps over a basemap (four test tracks chosen by error percentile), and the rollout probability
+  heatmap as a GIF.
+- **New `compare_runs.py`** — compares two trained runs covering different regions, where raw
+  kilometres are not on their own meaningful. Scores each run's test set against a constant-velocity
+  dead-reckoning baseline and reports skill, the per-track error distribution, error relative to the
+  distance actually travelled, and learning curves against gradient steps rather than epochs.
 - **`CLAUDE.md`** — architecture and configuration notes for working in this repository.
 
 ### Requirements
@@ -65,9 +74,12 @@ True` to train, `False` to load an existing checkpoint and evaluate only. Note t
 checkpoint directory.
 
 ```bash
-python trAISformer.py     # train (if retrain) and evaluate, writes prediction_error.png
-python eval_model.py      # roll out one test track, plot the prediction heatmap on a basemap
-python data_viewer.py     # scatter-plot the raw trajectories and coastline
+python trAISformer.py       # train (if retrain) and evaluate, writes prediction_error.png
+python make_visuals.py      # loss curves, epoch animation, forecast maps, rollout heatmap
+python compare_runs.py measure   # cache one run's comparison numbers (run once per dataset)
+python compare_runs.py plot      # draw results/comparison/ from every cached measurement
+python eval_model.py        # roll out one test track, plot the prediction heatmap on a basemap
+python data_viewer.py       # scatter-plot the raw trajectories and coastline
 ```
 
 Prediction errors are reported in km, while the paper converts them to nautical miles.

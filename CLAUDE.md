@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PyTorch implementation of TrAISformer (https://arxiv.org/abs/2109.03958), a GPT-style generative
 transformer for AIS vessel-trajectory prediction. The transformer core is adapted from
-karpathy/minGPT. This fork adds two local visualization scripts: `eval_model.py`, which rolls out a
-prediction and draws its probability heatmap over an OpenTopoMap basemap, and `data_viewer.py`, which
-scatter-plots the raw dataset without a basemap.
+karpathy/minGPT. This fork adds local visualization and evaluation scripts: `eval_model.py` (rolls
+out a prediction and draws its probability heatmap over an OpenTopoMap basemap), `data_viewer.py`
+(scatter-plots the raw dataset without a basemap), `make_visuals.py` (a finished run's figures) and
+`compare_runs.py` (two runs on different regions, compared without letting geography do the talking).
 
 ## Environment & commands
 
@@ -17,10 +18,25 @@ Python 3.12 (`.python-version`), local `venv/` in the repo root, deps pinned in 
 
 ```bash
 source venv/bin/activate
-python trAISformer.py     # train (if cf.retrain) + full test-set evaluation, writes prediction_error.png
-python eval_model.py      # load checkpoint, roll out one test track, plot per-step lat/lon prob heatmap
-python data_viewer.py     # scatter-plot raw test trajectories and coastline polygons
+python trAISformer.py       # train (if cf.retrain) + full test-set evaluation, writes prediction_error.png
+python make_visuals.py      # loss curves, epoch animation, forecast maps, rollout heatmap for that run
+python compare_runs.py measure   # cache this run's comparison numbers (once per dataset)
+python compare_runs.py plot      # draw results/comparison/ from every cached measurement
+python eval_model.py        # load checkpoint, roll out one test track, plot per-step lat/lon prob heatmap
+python data_viewer.py       # scatter-plot raw test trajectories and coastline polygons
 ```
+
+**These are slow, so plan before starting one.** On the RTX 3050, per epoch and per full test-set
+pass:
+
+| | tracks (train / test) | per epoch | test evaluation |
+| --- | --- | --- | --- |
+| `ct_dma` | 9,144 / 1,453 | ~2.4 min | ~12 min |
+| `mc_ais` | 52,357 / 8,415 | ~13.5 min | ~70 min |
+
+`trAISformer.py` does both, so a 15-epoch mc_ais run is about 4.5 hours. `compare_runs.py measure`
+costs another full test pass. Run these in the background and ask the user about the epoch budget
+before committing to one.
 
 There is no test suite, linter config, or build step. `eval_model.py` / `data_viewer.py` use
 `plt.show()` and need a GUI backend; `trAISformer.py` forces `matplotlib.use('Agg')`.
@@ -65,6 +81,21 @@ Other flags that matter:
   and an `mc_ais-...-bs-16-...` run, both trained on this machine, plus a `.bak-2024-11-01` copy of
   the original upstream-default (`bs-32`) ct_dma checkpoint. `batch_size` is 16 rather than the
   upstream 32 because the 4 GB GPU runs out of memory at 32.
+
+### State of the two trained runs
+
+- **`ct_dma` is converged.** Validation loss bottomed at epoch 15 of 25 (1.386) and rose to 1.617 by
+  epoch 25; `model.pt` is the epoch-15 checkpoint. More epochs would only overfit further.
+- **`mc_ais` is not.** Validation loss fell monotonically to 2.042 at epoch 15, the last epoch, with
+  a train/valid gap of 0.4 against ct_dma's 1.8 — with 5.7x the data it never got the chance to
+  overfit, and the run stopped on the epoch budget rather than on a minimum. Treat every mc_ais
+  number as a floor, and expect more epochs to improve it.
+- The two loss values are **not comparable to each other**: each is a cross-entropy over its own
+  region's grid.
+- **Expect ~10% run-to-run variation** in the reported errors. The headline metric is the minimum
+  over 16 sampled rollouts, the per-track errors are heavy-tailed, and nothing seeds the sampler per
+  call, so `prediction_error.png` and `compare_runs.py` disagree by about that much on the *same*
+  checkpoint. A difference at that scale is noise, not a regression.
 
 ### Regions of interest
 
